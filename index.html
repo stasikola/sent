@@ -1,0 +1,71 @@
+<!doctype html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>FIELD ONE — веб-синтезатор</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;600&family=Manrope:wght@300;500;700&display=swap" rel="stylesheet">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/tone/14.8.49/Tone.js"></script>
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+<div id="wrap">
+  <div id="stage">
+    <div id="device">
+      <div class="jack s" style="left:806px"></div><div class="jack s" style="left:896px"></div>
+      <div class="jack b" style="left:996px"></div><div class="jack b" style="left:1081px"></div>
+
+      <div id="left"></div>
+
+      <div id="right">
+        <div id="speaker"><canvas id="grille"></canvas></div>
+
+        <div class="mod" id="tape">
+          <div class="mtitle">TAPE</div>
+          <div class="chip" id="tchip"><b>TAPE</b><span>IDLE</span></div>
+          <div id="disc" title="Тяни диск — подкрутка темпа. Центр — сохранить запись">
+            <div id="discRot">
+              <span class="dt" style="left:66px;top:66px;transform:rotate(38deg)">96/24</span>
+              <span class="dt" style="right:64px;bottom:62px;transform:rotate(38deg)">FIELD</span>
+            </div>
+            <div id="hub" title="Скачать последнюю запись"><i style="left:22px;top:52px"></i><i style="left:50px;top:52px"></i><i style="left:36px;top:14px"></i></div>
+          </div>
+          <div class="rk" id="nudgeUp" style="right:18px;top:322px" title="Темп +1">+</div>
+          <div class="rk" id="nudgeDn" style="right:56px;top:336px" title="Темп −1">−</div>
+          <div id="ttrans">
+            <div class="tk" id="tRec" title="Записать выступление"><svg viewBox="0 0 26 26"><circle cx="13" cy="13" r="6" fill="#ff5a1f"/></svg></div>
+            <div class="tk" id="tPlay" title="Прослушать запись"><svg viewBox="0 0 26 26"><path d="M8 5l13 8-13 8z" fill="#3a3a3c"/></svg></div>
+            <div class="tk" id="tStop" title="Стоп"><svg viewBox="0 0 26 26"><rect x="6" y="6" width="14" height="14" rx="1.5" fill="#3a3a3c"/></svg></div>
+          </div>
+          <div id="swing" title="Свинг"><i></i><span class="sl">swing</span></div>
+        </div>
+
+        <div class="mod" id="mix">
+          <div class="mtitle">MIX-6</div>
+          <div id="mixCh" style="position:absolute;left:8px;top:0;width:232px;height:492px"></div>
+          <div id="mixR">
+            <div class="chip" id="lcd"><small>BPM</small><b id="lcdN">92</b><span id="lcdS">&nbsp;</span></div>
+            <div class="knob mix" id="tempoKnob" style="--c:#c9b48f" title="Темп"><i class="kcap"><b></b></i></div>
+            <div class="mlbl" style="top:224px">FX</div>
+            <div class="fx" id="fx1" style="top:244px" title="Dub — эхо-выброс"><i data-t="DUB"></i></div>
+            <div class="fx o" id="fx2" style="top:306px" title="Muffle — приглушить всё"><i data-t="LP"></i></div>
+            <div class="mlbl" style="top:382px">shift</div>
+            <div class="sk" id="shift2" title="Shift: FX залипают"></div>
+          </div>
+        </div>
+      </div>
+
+      <div class="engrave" style="left:30px">ADC-26 · FIELD ONE</div>
+      <div class="engrave" style="right:110px">WEB SYNTH</div>
+      <div class="foot" style="left:868px"></div>
+      <div class="foot" style="left:1164px"></div>
+    </div>
+    <div id="hint"><kbd>Пробел</kbd> старт/стоп · <kbd>Q</kbd><kbd>W</kbd><kbd>E</kbd><kbd>R</kbd> выбрать голос · <kbd>A</kbd><kbd>S</kbd><kbd>D</kbd><kbd>F</kbd><kbd>G</kbd><kbd>H</kbd> играть · <kbd>1</kbd>–<kbd>4</kbd> смена аккорда · клик по экрану — рисовать ноты · тяни диск — подкрутить темп</div>
+  </div>
+</div>
+
+<script src="script.js"></script>
+</body>
+</html>
