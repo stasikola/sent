@@ -45,9 +45,12 @@ const grid=voices.map(()=>Array.from({length:6},()=>new Array(16).fill(0)));
   put(3,{0:[0,7,10],1:[4,12],3:[0,2,4,6,8,10,12,14],4:[15],5:[11]});
 })();
 let sel=0, ptn=0, pending=null, step=0, playhead=-1, lastStepTime=0;
+const FLASH=window.PRESETS||[];          // записи на флешках, файл presets.js
+const flashEls=[];                         // кнопки-флешки
+let flashSlot=null, flashCur=null, pendingFlash=null; // вставлена, загружена, ждёт начала такта
 let playing=false, rec=false, powered=false;
 let bpmBase=92, half=false, dbl=false, nudge=0, swing=.3, swingOn=true;
-let shiftHeld=false, fxLatch=false;
+let shiftHeld=false;
 const voiceMute=[false,false,false,false], chMute=new Array(6).fill(false);
 
 /* ================= аудио-граф ================= */
@@ -154,6 +157,10 @@ function drum(r,t,vel){
 function humanize(base){return clamp(base+(Math.random()-.5)*.16,.2,1)}
 
 const loop=new Tone.Loop(time=>{
+  if(step===0&&pendingFlash!==null){
+    const f=pendingFlash;pendingFlash=null;applyPreset(FLASH[f]);flashCur=f;
+    Tone.Draw.schedule(()=>{if(flashEls[f])flashEls[f].el.classList.remove('wait')},time);
+  }
   if(step===0&&pending!==null){ptn=pending;pending=null;Tone.Draw.schedule(refreshPatternKeys,time)}
   lastStepTime=time;
   const s=step, sd=stepDur();
@@ -242,23 +249,24 @@ const bezel=el('div');bezel.id='bezel';bezel.innerHTML='<canvas id="screen"></ca
 const waveKeys=[ic.sine,ic.tri,ic.saw,ic.sq].map((h,i)=>{const k=addKey(1+i,7,h+led);k.title='Форма волны / вариант набора ударных';return k});
 const ptnKeys=[1,2,3,4].map((n,i)=>{const k=addKey(5+i,7,`<span class="n">${n}</span>`+led);k.title=`Аккорд ${PN[i]}`;return k});
 /* ряд 8 */
-const kUp=addKey(1,8,ic.up);kUp.title='Октава вверх';
-const kDn=addKey(2,8,ic.down);kDn.title='Октава вниз';
-const kCut=addKey(3,8,ic.cut);kCut.title='Очистить голос';
+const kUp=addKey(1,8,ic.up+led);kUp.title='Октава вверх';
+const kDn=addKey(2,8,ic.down+led);kDn.title='Октава вниз';
+const kCut=addKey(3,8,ic.cut+led);kCut.title='Очистить голос';
 const muteDots=voices.map((vo,i)=>{
   const c=cell(4+i,8);
-  const d=el('button','dot');d.type='button';d.title=`Заглушить ${vo.name}`;
+  const d=el('button','dot on');d.type='button';d.title=`Выключить ${vo.name}`;
+  d.setAttribute('aria-label',vo.name);d.setAttribute('aria-pressed','true');
   c.appendChild(d);c.appendChild(el('i','dl'));c.appendChild(el('div','dotlbl',vo.name));
   return d;
 });
 /* ряды 9–10 */
 const kRec=addKey(1,9,ic.rec+led);kRec.title='Запись нот с клавиш в паттерн';
 const kPlay=addKey(2,9,ic.play+led);kPlay.title='Старт (Пробел)';
-const kStop=addKey(3,9,ic.stop);kStop.title='Стоп';
-const kL=addKey(1,10,ic.l);kL.title='Сдвинуть рисунок влево';
-const kR=addKey(2,10,ic.r);kR.title='Сдвинуть рисунок вправо';
-const kShift=addKey(3,10,'<span class="sm">shift</span>');kShift.title='Shift: сдвиг сразу на 4 шага';
-const pills=[0,1,2,3,4,5].map(r=>{const k=addKey(4+r,9,`<span class="k"></span>`,'',1,2,'pill');return k});
+const kStop=addKey(3,9,ic.stop+led);kStop.title='Стоп';
+const kL=addKey(1,10,ic.l+led);kL.title='Сдвинуть рисунок влево';
+const kR=addKey(2,10,ic.r+led);kR.title='Сдвинуть рисунок вправо';
+const kShift=addKey(3,10,'<span class="sm">shift</span>'+led);kShift.title='Shift: сдвиг сразу на 4 шага';
+const pills=[0,1,2,3,4,5].map(r=>{const k=addKey(4+r,9,`<span class="k"></span>`+led,'',1,2,'pill');return k});
 const pillKeys=['a','s','d','f','g','h'];
 
 /* ================= UI: правая часть ================= */
@@ -288,8 +296,15 @@ chInfo.forEach((ci,i)=>{
     const up=()=>{f.removeEventListener('pointermove',setF);f.removeEventListener('pointerup',up);f.removeEventListener('pointercancel',up)};
     f.addEventListener('pointermove',setF);f.addEventListener('pointerup',up);f.addEventListener('pointercancel',up)});
   const lbl=el('div','chl',ci.n);
-  const m=el('button','mk');m.type='button';m.title='Заглушить канал';
-  bindPress(m,()=>{chMute[i]=!chMute[i];m.classList.toggle('on',chMute[i]);applyCh(i)});
+  const m=el('button','mk on');m.type='button';m.title=`Выключить канал ${ci.n}`;
+  m.setAttribute('aria-label',ci.n);m.setAttribute('aria-pressed','true');
+  bindPress(m,()=>{
+    chMute[i]=!chMute[i];
+    const on=!chMute[i];
+    m.classList.toggle('on',on);m.setAttribute('aria-pressed',String(on));
+    m.title=`${on?'Выключить':'Включить'} канал ${ci.n}`;
+    applyCh(i);
+  });
   col.append(k1,k2,k3,leds,f,lbl,m);
   mixCh.appendChild(col);
   faders.push(f);ledsUI.push([...leds.children]);muteUI.push(m);
@@ -415,6 +430,8 @@ function drawScreen(now){
   if(sel!==3)x=chip(`OCT ${vo.oct>0?'+':''}${vo.oct}`,x,y0,'#7d838c',false)+6;
   x=chip(`PTN ${ptn+1} ${PN[ptn]}${pending!==null?' → '+PN[pending]:''}`,x,y0,'#8fb4ff',false)+6;
   x=chip(`BPM ${Math.round(effBpm())}`,x,y0,'#7d838c',false)+6;
+  if(pendingFlash!==null)x=chip(`USB ${pendingFlash+1} …`,x,y0,'#ffb07a',false)+6;
+  else if(flashCur!==null)x=chip(`USB ${flashCur+1}`,x,y0,'#ffb07a',false)+6;
   if(swingOn)x=chip(`SWG ${Math.round(swing*100)}`,x,y0,'#7d838c',false)+6;
   chip(rec?(Math.floor(now/400)%2?'● REC':'○ REC'):(playing?'PLAY':'STOP'),SW-10,y0,rec?'#ff5a1f':(playing?'#7cf29a':'#7d838c'),rec,'right');
 }
@@ -540,13 +557,17 @@ const fxState={dub:false,lp:false};
 function setDub(on){fxState.dub=on;dubBus.gain.rampTo(on?.85:0,.02);delay.feedback.rampTo(on?.7:.42,.05);$('#fx1').classList.toggle('on',on)}
 function setLP(on){fxState.lp=on;mFilter.frequency.rampTo(on?450:18000,on?.18:.25);$('#fx2').classList.toggle('on',on)}
 const fx1=$('#fx1'),fx2=$('#fx2');
-bindPress(fx1,()=>{startAudio();fxLatch?setDub(!fxState.dub):setDub(true)},()=>{if(!fxLatch)setDub(false)});
-bindPress(fx2,()=>{startAudio();fxLatch?setLP(!fxState.lp):setLP(true)},()=>{if(!fxLatch)setLP(false)});
-const shift2=$('#shift2');
-bindPress(shift2,()=>{fxLatch=!fxLatch;shift2.classList.toggle('on',fxLatch);if(!fxLatch){setDub(false);setLP(false)}});
+bindPress(fx1,()=>{startAudio();setDub(!fxState.dub)});
+bindPress(fx2,()=>{startAudio();setLP(!fxState.lp)});
 
 /* mute-точки */
-muteDots.forEach((d,i)=>bindPress(d,()=>{voiceMute[i]=!voiceMute[i];d.classList.toggle('on',voiceMute[i]);chInfo.forEach((ci,j)=>{if(ci.v===i)applyCh(j)})}));
+muteDots.forEach((d,i)=>bindPress(d,()=>{
+  voiceMute[i]=!voiceMute[i];
+  const on=!voiceMute[i];
+  d.classList.toggle('on',on);d.setAttribute('aria-pressed',String(on));
+  d.title=`${on?'Выключить':'Включить'} ${voices[i].name}`;
+  chInfo.forEach((ci,j)=>{if(ci.v===i)applyCh(j)});
+}));
 
 /* темп */
 const tk=$('#tempoKnob');
@@ -633,6 +654,7 @@ window.addEventListener('keydown',e=>{
   if(e.key==='Shift'){shiftHeld=true;return}
   const pi=pillKeys.indexOf(k);if(pi>=0){pills[pi].classList.add('down');noteOn(pi);return}
   const vi=['q','w','e','r'].indexOf(k);if(vi>=0){selectVoice(vi);return}
+  const fi=['z','x','c','v'].indexOf(k);if(fi>=0&&fi<FLASH.length){clickFlash(fi);return}
   if('1234'.includes(k)&&k){setPattern(+k-1)}
 });
 window.addEventListener('keyup',e=>{
@@ -641,13 +663,91 @@ window.addEventListener('keyup',e=>{
   const pi=pillKeys.indexOf(k);if(pi>=0){pills[pi].classList.remove('down');noteOff(pi)}
 });
 
+/* ================= флешки с записями ================= */
+const VOICE_KEYS=['bass','pluck','pad','drums'];
+const REDUCE=matchMedia('(prefers-reduced-motion: reduce)').matches;
+const PORT_X=636, PORT_TOP=726, REST_TOP=800;   // центр USB-порта и положение флешки в порту, в координатах сцены
+
+/* загрузить запись: ноты, тембры, микшер, темп, аккорд */
+function applyPreset(p){
+  VOICE_KEYS.forEach((key,v)=>{
+    const d=p.voices[key];if(!d)return;
+    for(let r=0;r<6;r++)for(let s=0;s<16;s++)grid[v][r][s]=d.rows[r][s]==='#'?1:0;
+    voices[v].wave=d.wave;voices[v].oct=d.oct||0;voices[v].macro=d.macro;
+    applyMacro(v);applyWave(v);
+    padEls[v].kn.style.setProperty('--v',voices[v].macro);
+  });
+  p.faders.forEach((f,i)=>{chInfo[i].fader=f;faders[i].style.setProperty('--v',f);applyCh(i)});
+  ['com','wow','half','dbl','swg'].forEach(id=>{
+    const on=id==='swg'?p.swing===true:false,k=side[id];
+    if(k.classList.contains('on')!==on){k.classList.toggle('on',on);toggles[id](on)}
+  });
+  setBpm(p.bpm);
+  ptn=p.ptn;pending=null;
+  selectVoice(sel);refreshPatternKeys();
+}
+
+/* движение флешки: чуть приподнять, сдвинуть, вставить */
+function moveDrive(d,to,mid){
+  const el=d.el,from=d.pos;
+  el.style.transform=`translate(${to.x}px,${to.y}px)`;
+  d.pos=to;
+  if(REDUCE)return;
+  const f=p=>({transform:`translate(${p.x}px,${p.y}px)`});
+  if(d.anim)d.anim.cancel();
+  d.anim=el.animate([f(from),{...f(mid),offset:.45},f(to)],{duration:620,easing:'cubic-bezier(.4,0,.2,1)'});
+}
+function insertFlash(i){
+  const d=flashEls[i];
+  d.el.classList.add('active');d.el.setAttribute('aria-pressed','true');
+  flashSlot=i;
+  const to={x:PORT_X-d.cx,y:PORT_TOP-REST_TOP};
+  moveDrive(d,to,{x:to.x,y:-46});
+  if(playing){pendingFlash=i;d.el.classList.add('wait')}   // музыка идёт: меняем на следующем такте
+  else{applyPreset(FLASH[i]);flashCur=i;play()}              // музыки нет: загружаем и запускаем
+}
+function ejectFlash(i){
+  const d=flashEls[i];
+  d.el.setAttribute('aria-pressed','false');d.el.classList.remove('wait');
+  if(pendingFlash===i)pendingFlash=null;
+  if(flashCur===i)flashCur=null;
+  flashSlot=null;
+  moveDrive(d,{x:0,y:0},{x:d.pos.x,y:-46});
+  setTimeout(()=>{if(flashSlot!==i)d.el.classList.remove('active')},REDUCE?0:640);
+}
+function clickFlash(i){
+  startAudio();
+  if(flashSlot===i){ejectFlash(i);return}
+  if(flashSlot!==null)ejectFlash(flashSlot);
+  insertFlash(i);
+}
+(function buildFlash(){
+  const n=FLASH.length;if(!n)return;
+  const TX=200,TW=860,stg=$('#stage');
+  FLASH.forEach((p,i)=>{
+    const cx=TX+TW/n*(i+.5);
+    const slot=el('div','dslot');slot.style.left=(cx-34)+'px';stg.appendChild(slot);
+    const num=el('span','dslotn',String(i+1).padStart(2,'0'));num.style.left=(cx-34)+'px';stg.appendChild(num);
+  });
+  FLASH.forEach((p,i)=>{
+    const cx=TX+TW/n*(i+.5);
+    const b=el('button','drive',`<span class="dtip"><i></i><i></i></span><span class="dbody"><span class="dlabel"></span><span class="dled"></span><span class="dhole"></span></span>`);
+    b.type='button';b.style.left=(cx-28)+'px';b.style.setProperty('--dc',p.color);
+    b.setAttribute('aria-pressed','false');
+    b.setAttribute('aria-label',`${p.name}. Вставить в порт`);
+    b.addEventListener('click',()=>clickFlash(i));
+    stg.appendChild(b);
+    flashEls.push({el:b,cx,pos:{x:0,y:0},anim:null});
+  });
+})();
+
 /* ================= масштаб ================= */
 let scale=1;
 const wrap=$('#wrap'),stage=$('#stage');
 function fit(){
   scale=clamp((window.innerWidth-24)/1260,.25,1.4);
   stage.style.transform=`scale(${scale})`;
-  wrap.style.width=1260*scale+'px';wrap.style.height=820*scale+'px';
+  wrap.style.width=1260*scale+'px';wrap.style.height=950*scale+'px';
 }
 window.addEventListener('resize',fit);fit();
 
